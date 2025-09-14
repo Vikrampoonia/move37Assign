@@ -1,0 +1,83 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+// prisma/schema.prisma
+
+model User {
+  id           String @id @default(cuid())
+  name         String
+  email        String @unique
+  passwordHash String
+
+  // A User can create many Polls
+  createdPolls Poll[]
+
+  // A User can cast many Votes
+  votes Vote[]
+}
+
+model Poll {
+  id        String   @id @default(cuid())
+  question  String
+  isPublished Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // A Poll is created by one User
+  creator   User   @relation(fields: [creatorId], references: [id])
+  creatorId String
+
+  // A Poll has many PollOptions
+  options PollOption[]
+
+  // A Poll receives many Votes
+  votes Vote[]
+}
+
+model PollOption {
+  id     String @id @default(cuid())
+  text   String
+
+  // An option belongs to one Poll
+  poll   Poll   @relation(fields: [pollId], references: [id])
+  pollId String
+
+  // An option can be chosen in many Votes
+  votes Vote[]
+}
+
+
+model Vote {
+  // A Vote is cast by one User
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  // A Vote is cast in one Poll
+  poll   Poll   @relation(fields: [pollId], references: [id])
+  pollId String
+
+  // A Vote is for one specific PollOption
+  option   PollOption @relation(fields: [optionId], references: [id])
+  optionId String
+
+  createdAt DateTime @default(now())
+
+  // for the same userId and pollId combination.
+  @@unique([userId, pollId])
+
+  // We use a composite primary key as well for data integrity
+  @@id([userId, pollId, optionId])
+}

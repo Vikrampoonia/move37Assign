@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poll WebSocket Tester</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: auto; padding: 20px; }
+        input, button { padding: 10px; margin: 5px; font-size: 1rem; border-radius: 8px; border: 1px solid #ccc; }
+        #log { border: 1px solid #ddd; margin-top: 20px; padding: 15px; height: 400px; overflow-y: scroll; background-color: #f9f9f9; border-radius: 8px; white-space: pre-wrap; font-family: monospace; }
+        #results { background-color: #eef; padding: 15px; border-radius: 8px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Real-Time Poll Tester</h1>
+    <div>
+        <input type="text" id="pollId" placeholder="Enter Poll ID to Watch...">
+        <button onclick="joinPollRoom()">Watch Poll</button>
+    </div>
+
+    <div id="results"><h3>Results will appear here...</h3></div>
+    <div id="log"><p><em>Waiting for connection...</em></p></div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        const socket = io('ws://localhost:3000'); // Ensure URL is correct
+        const log = document.getElementById('log');
+        const resultsDiv = document.getElementById('results');
+        let currentPollId = null;
+
+        const logMessage = (message) => {
+            const p = document.createElement('p');
+            p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.prepend(p);
+        };
+
+        socket.on('connect', () => {
+            log.innerHTML = "";
+            logMessage('✅ WebSocket connection established.');
+        });
+
+        socket.on('update_votes', (data) => {
+            logMessage(`⬅️ RECEIVED VOTE UPDATE: ${JSON.stringify(data, null, 2)}`);
+            displayResults(data);
+        });
+
+        function joinPollRoom() {
+            const pollIdInput = document.getElementById('pollId').value;
+            if (!pollIdInput) {
+                alert('Please enter a Poll ID.');
+                return;
+            }
+            if (currentPollId) {
+                socket.emit('leave_poll_room', currentPollId);
+                logMessage(`➡️ SENT: Left room for Poll ID ${currentPollId}`);
+            }
+            currentPollId = pollIdInput;
+            socket.emit('join_poll_room', currentPollId);
+            logMessage(`➡️ SENT: Joined room for Poll ID ${currentPollId}`);
+            resultsDiv.innerHTML = `<h3>Watching poll ${currentPollId}... Waiting for votes.</h3>`;
+        }
+
+        function displayResults(pollData) {
+            let html = `<h3>${pollData.question} (ID: ${pollData.id})</h3>`;
+            html += '<ul>';
+            pollData.options.forEach(option => {
+                html += `<li>${option.text}: <strong>${option._count.votes} votes</strong></li>`;
+            });
+            html += '</ul>';
+            resultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
